@@ -131,15 +131,21 @@ fn read_config(file: &str) -> Config {
 fn write_runway_file(file: String, dep: HashMap<String, String>, arr: HashMap<String, String>) {
     let mut f = match fs::OpenOptions::new().write(true).truncate(true).open(file) {
         Ok(it) => it,
-        Err(err) => panic!("Couldn't open the file!"),
+        Err(err) => panic!("Couldn't open the file! {}", err),
     };
     for (icao, rwy) in dep {
         let line = format!("ACTIVE_RUNWAY:{}:{}:1\n",icao,rwy);
-        f.write_all(line.as_bytes());
+        match f.write_all(line.as_bytes()) {
+            Ok(_) => {},
+            Err(err) => panic!("Couldn't write departures to the file the file! {}", err),
+        }
     }
     for (icao, rwy) in arr {
         let line = format!("ACTIVE_RUNWAY:{}:{}:0\n",icao,rwy);
-        f.write_all(line.as_bytes());
+        match f.write_all(line.as_bytes()) {
+            Ok(_) => {},
+            Err(err) => panic!("Couldn't write arrivals to the file the file! {}", err),
+        }
     }
 }
 
@@ -151,11 +157,13 @@ async fn main() -> Result<(), ExitFailure> {
     println!("OK");
     let mut dep_rwys = HashMap::new();
     let mut arr_rwys = HashMap::new();
+    print!("Processing weather data: ");
     for airport in cfg.airports.iter() {
-        let (d,a) = airport.select_rwy().await?;;
+        let (d,a) = airport.select_rwy().await?;
         dep_rwys.insert(airport.icao.clone(), d);
         arr_rwys.insert(airport.icao.clone(), a);
     }
+    println!("OK");
     print!("Writing file: ");
     write_runway_file(cfg.rwy_file, dep_rwys, arr_rwys);
     println!("OK");
