@@ -2,7 +2,7 @@ use exitfailure::ExitFailure;
 use metar::{Metar, WindDirection};
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
-use std::{fs, collections::HashMap, io::Write};
+use std::{fs, collections::HashMap, io::Write, cmp};
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Config {
@@ -29,7 +29,8 @@ struct Airport {
 
 impl Runway {
     fn get_wind_dir_difference(&self, wind_dir: u32) -> u32 {
-        self.true_heading.abs_diff(wind_dir)
+        //self.true_heading.abs_diff(wind_dir)
+        cmp::min(360 - self.true_heading.abs_diff(wind_dir), self.true_heading.abs_diff(wind_dir))
     }
 }
 
@@ -65,11 +66,19 @@ impl Airport {
             metar::WindSpeed::MetresPerSecond(s) => speed = *s * 2,
             metar::WindSpeed::KilometresPerHour(s) => speed = *s / 2,
         }
-        if speed < 3 {
+        print!("WIND: {:0>3} {:0>2}kt ", direction, speed);
+        let min_wind: u32;
+        if self.preferred_arr.is_none() {
+            min_wind = 3;
+        } else {
+            min_wind = 15;
+        }
+        if speed < min_wind {
             direction = 270; // For winds below 3 knots use preferred runway
         }
         let dep = self.select_dep_rwy(direction).unwrap();
         let arr = self.select_arr_rwy(direction).unwrap();
+        println!("DEP: {:<3} ARR: {:<3}", dep, arr);
         Ok((dep, arr))
     }
 
@@ -157,13 +166,14 @@ async fn main() -> Result<(), ExitFailure> {
     println!("OK");
     let mut dep_rwys = HashMap::new();
     let mut arr_rwys = HashMap::new();
-    print!("Processing weather data: ");
+    println!("Processing data: ");
     for airport in cfg.airports.iter() {
+        print!("{} ", airport.icao);
         let (d,a) = airport.select_rwy().await?;
         dep_rwys.insert(airport.icao.clone(), d);
         arr_rwys.insert(airport.icao.clone(), a);
     }
-    println!("OK");
+    println!("Done");
     print!("Writing file: ");
     write_runway_file(cfg.rwy_file, dep_rwys, arr_rwys);
     println!("OK");
