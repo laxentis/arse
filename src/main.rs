@@ -38,7 +38,7 @@ impl Airport {
         let direction: u32;
         match wind {
             WindDirection::Heading(dir) => {direction = dir;}
-            WindDirection::Variable => {direction = 270;}
+            WindDirection::Variable => {direction = 270;} // Assume western wind for best suited runways
             WindDirection::Above => {direction = 270;}
         }
         Ok(direction)
