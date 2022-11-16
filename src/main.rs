@@ -24,7 +24,7 @@ struct Airport {
 }
 
 impl Airport {
-    async fn get_wx(&self) -> Result<u32, ExitFailure> {
+    async fn get_wx(&self) -> Result<(u32, u32), ExitFailure> {
         let icao: String;
         match &self.use_metar_from {
             Some(s) => { icao = s.to_string()},
@@ -40,7 +40,15 @@ impl Airport {
             WindDirection::Variable => {direction = 270;} // Assume western wind for best suited runways
             WindDirection::Above => {direction = 270;}
         }
-        Ok(direction)
+        let speed: u32;
+        match metar.wind.speed.unwrap() {
+            metar::WindSpeed::Calm => {speed = 0;}
+            metar::WindSpeed::Knot(s) => {speed = *s},
+            metar::WindSpeed::MetresPerSecond(s) => {speed = *s * 2},
+            metar::WindSpeed::KilometresPerHour(s) => {speed = *s / 2},
+            
+        }
+        Ok((direction, speed))
     }
 }
 
