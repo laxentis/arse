@@ -38,6 +38,14 @@
             ]
         },
         {
+            "icao": "EPKS",
+            "use_metar_from": "EPPO",
+            "runways": [
+                {"id": "11", "true_heading": 118},
+                {"id": "29", "true_heading": 298}
+            ]
+        },
+        {
             "icao": "EPKT",
             "runways": [
                 {"id": "08", "true_heading": 90},
