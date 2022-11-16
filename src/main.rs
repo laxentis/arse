@@ -1,4 +1,5 @@
 use std::fs;
+use metar::Metar;
 use reqwest::Url;
 use serde::{Serialize, Deserialize};
 use exitfailure::ExitFailure;
@@ -23,7 +24,7 @@ struct Airport {
 }
 
 impl Airport {
-    async fn get_wx(&self) -> Result<String, ExitFailure> {
+    async fn get_wx(&self) -> Result<Metar, ExitFailure> {
         let icao: String;
         match &self.use_metar_from {
             Some(s) => { icao = s.to_string()},
@@ -32,7 +33,8 @@ impl Airport {
         let url = format!("https://metar.vatsim.net/metar.php?id={}", icao);
         let url = Url::parse(&*url)?;
         let res = reqwest::get(url).await?.text().await?;
-        Ok(res)
+        let metar = Metar::parse(res).unwrap();
+        Ok(metar)
     }
 }
 
@@ -50,7 +52,7 @@ async fn main() -> Result<(), ExitFailure> {
     println!("OK");
     for airport in cfg.airports.iter() {
         let wx = airport.get_wx().await?;
-        println!("{}: {}", airport.icao, wx);
+        println!("{}: {:?}", airport.icao, wx);
     }
     Ok(())
 }
