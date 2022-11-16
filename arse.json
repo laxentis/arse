@@ -2,6 +2,14 @@
     "sector_file": "test",
     "airports": [
         {
+            "icao": "EPBC",
+            "use_metar_from": "EPWA",
+            "runways": [
+                {"id": "10", "true_heading": 103},
+                {"id": "28", "true_heading": 283}
+            ]
+        },
+        {
             "icao": "EPBY",
             "runways": [
                 {"id": "08", "true_heading": 82},
