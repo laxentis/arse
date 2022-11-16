@@ -1,0 +1,19 @@
+{
+    "sector_file": "test",
+    "airports": [
+        {
+            "icao": "EPBY",
+            "runways": [
+                {"id": "08", "true_heading": 82},
+                {"id": "26", "true_heading": 262}
+            ]
+        },
+        {
+            "icao": "EPGD",
+            "runways": [
+                {"id": "11", "true_heading": 113},
+                {"id": "29", "true_heading": 293}
+            ]
+        }
+    ]
+}
