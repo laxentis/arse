@@ -34,10 +34,9 @@ impl Airport {
         let url = Url::parse(&*url)?;
         let res = reqwest::get(url).await?.text().await?;
         let metar = Metar::parse(res).unwrap();
-        let wind = metar.wind.dir.unwrap().clone();
         let direction: u32;
-        match wind {
-            WindDirection::Heading(dir) => {direction = dir;}
+        match metar.wind.dir.unwrap() {
+            WindDirection::Heading(dir) => {direction = *dir;}
             WindDirection::Variable => {direction = 270;} // Assume western wind for best suited runways
             WindDirection::Above => {direction = 270;}
         }
