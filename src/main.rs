@@ -1,5 +1,5 @@
 use std::fs;
-use metar::Metar;
+use metar::{Metar, WindDirection};
 use reqwest::Url;
 use serde::{Serialize, Deserialize};
 use exitfailure::ExitFailure;
@@ -24,7 +24,7 @@ struct Airport {
 }
 
 impl Airport {
-    async fn get_wx(&self) -> Result<Metar, ExitFailure> {
+    async fn get_wx(&self) -> Result<u32, ExitFailure> {
         let icao: String;
         match &self.use_metar_from {
             Some(s) => { icao = s.to_string()},
@@ -34,7 +34,14 @@ impl Airport {
         let url = Url::parse(&*url)?;
         let res = reqwest::get(url).await?.text().await?;
         let metar = Metar::parse(res).unwrap();
-        Ok(metar)
+        let wind = metar.wind.dir.unwrap().clone();
+        let direction: u32;
+        match wind {
+            WindDirection::Heading(dir) => {direction = dir;}
+            WindDirection::Variable => {direction = 270;}
+            WindDirection::Above => {direction = 270;}
+        }
+        Ok(direction)
     }
 }
 
