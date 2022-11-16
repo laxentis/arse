@@ -1,6 +1,13 @@
 {
-    "sector_file": "test",
+    "rwy_file": "C:\\Users\\dawid\\Documents\\EuroScope\\EPWW-dev.rwy",
     "airports": [
+        {
+            "icao": "EDDB",
+            "runways": [
+                {"id": "07L", "true_heading": 70},
+                {"id": "25L", "true_heading": 250}
+            ]
+        },
         {
             "icao": "EPBC",
             "use_metar_from": "EPWA",
@@ -21,6 +28,125 @@
             "runways": [
                 {"id": "11", "true_heading": 113},
                 {"id": "29", "true_heading": 293}
+            ]
+        },
+        {
+            "icao": "EPKK",
+            "runways": [
+                {"id": "07", "true_heading": 78},
+                {"id": "25", "true_heading": 258}
+            ]
+        },
+        {
+            "icao": "EPKT",
+            "runways": [
+                {"id": "08", "true_heading": 90},
+                {"id": "26", "true_heading": 270}
+            ]
+        },
+        {
+            "icao": "EPLB",
+            "runways": [
+                {"id": "07", "true_heading": 77},
+                {"id": "25", "true_heading": 257}
+            ]
+        },
+        {
+            "icao": "EPLL",
+            "runways": [
+                {"id": "07", "true_heading": 71},
+                {"id": "25", "true_heading": 251}
+            ]
+        },
+        {
+            "icao": "EPMO",
+            "runways": [
+                {"id": "08", "true_heading": 81},
+                {"id": "26", "true_heading": 261}
+            ]
+        },
+        {
+            "icao": "EPPO",
+            "runways": [
+                {"id": "10", "true_heading": 108},
+                {"id": "28", "true_heading": 288}
+            ]
+        },
+        {
+            "icao": "EPRA",
+            "runways": [
+                {"id": "07", "true_heading": 75},
+                {"id": "25", "true_heading": 255}
+            ]
+        },
+        {
+            "icao": "EPRZ",
+            "runways": [
+                {"id": "09", "true_heading": 91},
+                {"id": "27", "true_heading": 271}
+            ]
+        },
+        {
+            "icao": "EPSC",
+            "runways": [
+                {"id": "13", "true_heading": 131},
+                {"id": "31", "true_heading": 311}
+            ]
+        },
+        {
+            "icao": "EPLB",
+            "runways": [
+                {"id": "07", "true_heading": 77},
+                {"id": "25", "true_heading": 257}
+            ]
+        },
+        {
+            "icao": "EPSY",
+            "runways": [
+                {"id": "01", "true_heading": 19},
+                {"id": "19", "true_heading": 199}
+            ]
+        },
+        {
+            "icao": "EPLB",
+            "runways": [
+                {"id": "07", "true_heading": 77},
+                {"id": "25", "true_heading": 257}
+            ]
+        },
+        {
+            "icao": "EPWA",
+            "runways": [
+                {"id": "11", "true_heading": 115},
+                {"id": "29", "true_heading": 295},
+                {"id": "15", "true_heading": 152},
+                {"id": "33", "true_heading": 332}
+            ],
+            "preferred_dep": [
+                {"id": "29", "true_heading": 295},
+                {"id": "15", "true_heading": 152},
+                {"id": "33", "true_heading": 332},
+                {"id": "11", "true_heading": 115}
+            ],
+            "preferred_arr": [
+                {"id": "33", "true_heading": 332},
+                {"id": "11", "true_heading": 115},
+                {"id": "29", "true_heading": 295},
+                {"id": "15", "true_heading": 152}
+            ]
+        },
+        {
+            "icao": "EPWR",
+            "runways": [
+                {"id": "11", "true_heading": 116},
+                {"id": "29", "true_heading": 296}
+            ]
+        },
+        {
+            "icao": "EPZG",
+            "runways": [
+                {"id": "06", "true_heading": 65},
+                {"id": "24", "true_heading": 245}
             ]
         }
     ]

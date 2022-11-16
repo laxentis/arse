@@ -1,54 +1,124 @@
-use std::fs;
+use exitfailure::ExitFailure;
 use metar::{Metar, WindDirection};
 use reqwest::Url;
-use serde::{Serialize, Deserialize};
-use exitfailure::ExitFailure;
+use serde::{Deserialize, Serialize};
+use std::{fs, collections::HashMap, io::Write};
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Config {
-    sector_file: String,
-    airports: Vec<Airport>
+    rwy_file: String,
+    airports: Vec<Airport>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct Runway {
     id: String,
-    true_heading: u16
+    true_heading: u32,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 struct Airport {
     icao: String,
     runways: Vec<Runway>,
-    use_metar_from: Option<String>
+    use_metar_from: Option<String>,
+    preferred_dep: Option<Vec<Runway>>,
+    preferred_arr: Option<Vec<Runway>>,
+    selected_dep_rwy: Option<String>,
+    selected_arr_rwy: Option<String>
+}
+
+impl Runway {
+    fn get_wind_dir_difference(&self, wind_dir: u32) -> u32 {
+        self.true_heading.abs_diff(wind_dir)
+    }
 }
 
 impl Airport {
-    async fn get_wx(&self) -> Result<(u32, u32), ExitFailure> {
+    async fn select_rwy(&self) -> Result<(String, String), ExitFailure> {
         let icao: String;
         match &self.use_metar_from {
-            Some(s) => { icao = s.to_string()},
-            None => {icao = self.icao.clone()}
+            Some(s) => icao = s.to_string(),
+            None => icao = self.icao.clone(),
         }
         let url = format!("https://metar.vatsim.net/metar.php?id={}", icao);
         let url = Url::parse(&*url)?;
         let res = reqwest::get(url).await?.text().await?;
         let metar = Metar::parse(res).unwrap();
-        let direction: u32;
+        let mut direction: u32;
         match metar.wind.dir.unwrap() {
-            WindDirection::Heading(dir) => {direction = *dir;}
-            WindDirection::Variable => {direction = 270;} // Assume western wind for best suited runways
-            WindDirection::Above => {direction = 270;}
+            WindDirection::Heading(dir) => {
+                direction = *dir;
+            }
+            WindDirection::Variable => {
+                direction = 270;
+            } // Assume western wind for best suited runways
+            WindDirection::Above => {
+                direction = 270;
+            }
         }
         let speed: u32;
         match metar.wind.speed.unwrap() {
-            metar::WindSpeed::Calm => {speed = 0;}
-            metar::WindSpeed::Knot(s) => {speed = *s},
-            metar::WindSpeed::MetresPerSecond(s) => {speed = *s * 2},
-            metar::WindSpeed::KilometresPerHour(s) => {speed = *s / 2},
-            
+            metar::WindSpeed::Calm => {
+                speed = 0;
+            }
+            metar::WindSpeed::Knot(s) => speed = *s,
+            metar::WindSpeed::MetresPerSecond(s) => speed = *s * 2,
+            metar::WindSpeed::KilometresPerHour(s) => speed = *s / 2,
         }
-        Ok((direction, speed))
+        if speed < 3 {
+            direction = 270; // For winds below 3 knots use preferred runway
+        }
+        let dep = self.select_dep_rwy(direction).unwrap();
+        let arr = self.select_arr_rwy(direction).unwrap();
+        Ok((dep, arr))
+    }
+
+    fn select_dep_rwy(&self, wind_dir: u32) -> Result<String, ExitFailure> {
+        let dep: String;
+        if let Some(dep_prefs) = &self.preferred_dep {
+            dep = self.select_preferred_rwy(wind_dir, dep_prefs).unwrap();
+        } else {
+            dep = self.select_any_rwy(wind_dir, &self.runways).unwrap();
+        }
+        Ok(dep)
+    }
+
+    fn select_arr_rwy(&self, wind_dir: u32) -> Result<String, ExitFailure> {
+        let dep: String;
+        if let Some(arr_prefs) = &self.preferred_arr {
+            dep = self.select_preferred_rwy(wind_dir, arr_prefs).unwrap();
+        } else {
+            dep = self.select_any_rwy(wind_dir, &self.runways).unwrap();
+        }
+        Ok(dep)
+    }
+
+    fn select_preferred_rwy(&self, direction: u32, runway_list:&Vec<Runway>) -> Result<String, ExitFailure>
+    {
+        for rwy in runway_list.iter() {
+            if rwy.get_wind_dir_difference(direction) < 90 {
+                return Ok(rwy.id.clone())
+            }
+        }
+        panic!("No runway selected");
+    }
+
+    fn select_any_rwy(&self, direction: u32, runway_list:&Vec<Runway>) -> Result<String, ExitFailure> {
+        let mut selected: Option<String> = None;
+        let mut diff: u32 = 180;
+        for rwy in runway_list.iter() {
+            let nd = rwy.get_wind_dir_difference(direction);
+            if nd < diff {
+                diff = nd;
+                selected = Some(rwy.id.clone())
+            }
+        }
+        match selected {
+            Some(r) => {
+                Ok(r)
+            },
+            None => panic!("Could not select runway")
+        }
     }
 }
 
@@ -58,15 +128,36 @@ fn read_config(file: &str) -> Config {
     return cfg;
 }
 
+fn write_runway_file(file: String, dep: HashMap<String, String>, arr: HashMap<String, String>) {
+    let mut f = match fs::OpenOptions::new().write(true).truncate(true).open(file) {
+        Ok(it) => it,
+        Err(err) => panic!("Couldn't open the file!"),
+    };
+    for (icao, rwy) in dep {
+        let line = format!("ACTIVE_RUNWAY:{}:{}:1\n",icao,rwy);
+        f.write_all(line.as_bytes());
+    }
+    for (icao, rwy) in arr {
+        let line = format!("ACTIVE_RUNWAY:{}:{}:0\n",icao,rwy);
+        f.write_all(line.as_bytes());
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<(), ExitFailure> {
     println!("Automatic Runway Setting for Euroscope");
     print!("Reading config: ");
     let cfg = read_config("arse.json");
     println!("OK");
+    let mut dep_rwys = HashMap::new();
+    let mut arr_rwys = HashMap::new();
     for airport in cfg.airports.iter() {
-        let wx = airport.get_wx().await?;
-        println!("{}: {:?}", airport.icao, wx);
+        let (d,a) = airport.select_rwy().await?;;
+        dep_rwys.insert(airport.icao.clone(), d);
+        arr_rwys.insert(airport.icao.clone(), a);
     }
+    print!("Writing file: ");
+    write_runway_file(cfg.rwy_file, dep_rwys, arr_rwys);
+    println!("OK");
     Ok(())
 }
