@@ -24,6 +24,14 @@
             ]
         },
         {
+            "icao": "EPDE",
+            "use_metar_from": "EPLB",
+            "runways": [
+                {"id": "12", "true_heading": 121},
+                {"id": "30", "true_heading": 301}
+            ]
+        },
+        {
             "icao": "EPGD",
             "runways": [
                 {"id": "11", "true_heading": 113},
