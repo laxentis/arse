@@ -69,9 +69,9 @@ impl Airport {
         print!("WIND: {:0>3} {:0>2}kt ", direction, speed);
         let min_wind: u32;
         if self.preferred_arr.is_none() {
-            min_wind = 3;
+            min_wind = 5;
         } else {
-            min_wind = 15;
+            min_wind = 9;
         }
         if speed < min_wind {
             direction = 270; // For winds below 3 knots use preferred runway
