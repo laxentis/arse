@@ -138,7 +138,7 @@ fn read_config(file: &str) -> Config {
 }
 
 fn write_runway_file(file: String, dep: HashMap<String, String>, arr: HashMap<String, String>) {
-    let mut f = match fs::OpenOptions::new().write(true).truncate(true).open(file) {
+    let mut f = match fs::OpenOptions::new().write(true).truncate(true).create(true).open(file) {
         Ok(it) => it,
         Err(err) => panic!("Couldn't open the file! {}", err),
     };
