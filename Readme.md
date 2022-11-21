@@ -4,8 +4,6 @@ Did you ever forget to preset runways in use for an airport and be surprised by 
 
 This tool checks VATSIM METARs and preselects the runways for you.
 
-The software was built with PL-VACC in mind, hence it assumes that westward facing runways are better equipped and thus preferred in low wind conditions.
-
 **Caution**: The tool has to be launched **before** loading the sector file in EuroScope.
 
 ## Configuration
