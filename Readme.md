@@ -12,6 +12,10 @@ The software was built with PL-VACC in mind, hence it assumes that westward faci
 The configuration file is located in `arse.json`. Edit it to your needs.
 
 `rwy_file` must point to the location of the `.rwy` file (corresponding to your sector file).
+The following are optional configuration options:
+* `no_factor_wind` - wind, below which the wind direction is ignored for runway assigment
+* `pref_wind` - wind, below which the wind direction is ignored when preferred runway list is used
+* `assumed_wind_dir` - wind direction that is asssumed when it is unknown
 
 `airports` is a list of all processed airports. It has the following required properties:
 * `icao` - the ICAO code
