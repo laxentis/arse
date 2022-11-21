@@ -7,6 +7,9 @@ use std::{fs, collections::HashMap, io::Write, cmp};
 #[derive(Debug, Serialize, Deserialize)]
 struct Config {
     rwy_file: String,
+    no_factor_wind: Option<u32>,
+    pref_wind: Option<u32>,
+    assumed_dir: Option<u32>,
     airports: Vec<Airport>,
 }
 
@@ -35,8 +38,11 @@ impl Runway {
 }
 
 impl Airport {
-    async fn select_rwy(&self) -> Result<(String, String), ExitFailure> {
+    async fn select_rwy(&self, calm_wind:Option<u32>, pref_wind:Option<u32>, assumed_dir:Option<u32>) -> Result<(String, String), ExitFailure> {
         let icao: String;
+        let calm_wind = calm_wind.unwrap_or(5);
+        let pref_calm_wind = pref_wind.unwrap_or(15);
+        let assumed_dir = assumed_dir.unwrap_or(270);
         match &self.use_metar_from {
             Some(s) => icao = s.to_string(),
             None => icao = self.icao.clone(),
@@ -51,10 +57,10 @@ impl Airport {
                 direction = *dir;
             }
             WindDirection::Variable => {
-                direction = 270;
-            } // Assume western wind for best suited runways
+                direction = assumed_dir;
+            }
             WindDirection::Above => {
-                direction = 270;
+                direction = assumed_dir;
             }
         }
         let speed: u32;
@@ -69,9 +75,9 @@ impl Airport {
         print!("WIND: {:0>3} {:0>2}kt ", direction, speed);
         let min_wind: u32;
         if self.preferred_arr.is_none() {
-            min_wind = 5;
+            min_wind = calm_wind;
         } else {
-            min_wind = 9;
+            min_wind = pref_calm_wind;
         }
         if speed < min_wind {
             direction = 270; // For winds below 3 knots use preferred runway
@@ -169,7 +175,7 @@ async fn main() -> Result<(), ExitFailure> {
     println!("Processing data: ");
     for airport in cfg.airports.iter() {
         print!("{} ", airport.icao);
-        let (d,a) = airport.select_rwy().await?;
+        let (d,a) = airport.select_rwy(cfg.no_factor_wind, cfg.pref_wind, cfg.assumed_dir).await?;
         dep_rwys.insert(airport.icao.clone(), d);
         arr_rwys.insert(airport.icao.clone(), a);
     }
