@@ -13,7 +13,7 @@ The configuration file is located in `arse.json`. Edit it to your needs.
 The following are optional configuration options:
 * `no_factor_wind` - wind, below which the wind direction is ignored for runway assigment
 * `pref_wind` - wind, below which the wind direction is ignored when preferred runway list is used
-* `assumed_wind_dir` - wind direction that is asssumed when it is unknown
+* `assumed_wind_dir` - wind direction that is assumed when it is unknown
 
 `airports` is a list of all processed airports. It has the following required properties:
 * `icao` - the ICAO code
