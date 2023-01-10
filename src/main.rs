@@ -4,6 +4,8 @@ use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use std::{fs, collections::HashMap, io::Write, cmp};
 
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 #[derive(Debug, Serialize, Deserialize)]
 struct Config {
     rwy_file: String,
@@ -177,6 +179,7 @@ fn write_runway_file(file: String, dep: HashMap<String, String>, arr: HashMap<St
 #[tokio::main]
 async fn main() -> Result<(), ExitFailure> {
     println!("Automatic Runway Setting for Euroscope");
+    println!("Version {}", VERSION);
     print!("Reading config: ");
     let cfg = read_config("arse.json");
     println!("OK");
