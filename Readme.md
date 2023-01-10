@@ -20,8 +20,8 @@ The following are optional configuration options:
 * `runways` - a list of runways of the airport
 The following optional properties can be set:
 * `use_metar_from` - ICAO of an airport to get the METAR from. Useful for airports that do not have METARS available on VATSIM.
-* `preferred_dep` - an ordered list of preferred departure runways
-* `preferred_arr` - an ordered list of preferred arrival runways.
+* `preferred_dep` - an ordered list of preferred departure runway ids
+* `preferred_arr` - an ordered list of preferred arrival runway ids.
 
 A `runway` consists of following properties:
 * `id` - a string identifying a runway, must be the same as the runway ID in sector file (e.g. `"07L"`)
