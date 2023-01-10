@@ -24,8 +24,8 @@ struct Airport {
     icao: String,
     runways: Vec<Runway>,
     use_metar_from: Option<String>,
-    preferred_dep: Option<Vec<Runway>>,
-    preferred_arr: Option<Vec<Runway>>,
+    preferred_dep: Option<Vec<String>>,
+    preferred_arr: Option<Vec<String>>,
     selected_dep_rwy: Option<String>,
     selected_arr_rwy: Option<String>
 }
@@ -38,6 +38,15 @@ impl Runway {
 }
 
 impl Airport {
+    fn get_runway_heading(&self, id:String) -> Result<&Runway, String> {
+        for runway in &self.runways {
+            if runway.id == id {
+                return Ok(runway)
+            }
+        }
+        Err("No runway found".to_string())
+    }
+
     async fn select_rwy(&self, calm_wind:Option<u32>, pref_wind:Option<u32>, assumed_dir:Option<u32>) -> Result<(String, String), ExitFailure> {
         let icao: String;
         let calm_wind = calm_wind.unwrap_or(5);
@@ -108,11 +117,12 @@ impl Airport {
         Ok(dep)
     }
 
-    fn select_preferred_rwy(&self, direction: u32, runway_list:&Vec<Runway>) -> Result<String, ExitFailure>
+    fn select_preferred_rwy(&self, direction: u32, runway_list:&Vec<String>) -> Result<String, ExitFailure>
     {
         for rwy in runway_list.iter() {
-            if rwy.get_wind_dir_difference(direction) < 90 {
-                return Ok(rwy.id.clone())
+            let rw = self.get_runway_heading(rwy.to_owned()).unwrap();
+            if rw.get_wind_dir_difference(direction) < 90 {
+                return Ok(rw.id.clone())
             }
         }
         panic!("No runway selected");
