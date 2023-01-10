@@ -162,14 +162,14 @@ fn write_runway_file(file: String, dep: HashMap<String, String>, arr: HashMap<St
         let line = format!("ACTIVE_RUNWAY:{}:{}:1\n",icao,rwy);
         match f.write_all(line.as_bytes()) {
             Ok(_) => {},
-            Err(err) => panic!("Couldn't write departures to the file the file! {}", err),
+            Err(err) => panic!("Couldn't write departures to the file! {}", err),
         }
     }
     for (icao, rwy) in arr {
         let line = format!("ACTIVE_RUNWAY:{}:{}:0\n",icao,rwy);
         match f.write_all(line.as_bytes()) {
             Ok(_) => {},
-            Err(err) => panic!("Couldn't write arrivals to the file the file! {}", err),
+            Err(err) => panic!("Couldn't write arrivals to the file! {}", err),
         }
     }
 }
