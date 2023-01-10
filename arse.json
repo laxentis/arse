@@ -1,5 +1,5 @@
 {
-    "rwy_file": "C:\\Users\\dawid\\Documents\\EuroScope\\EPWW-Sector_20221104175051-221101-0001.rwy",
+    "rwy_file": "./EPWW-Sector_20220130145559-220101-0002.rwy",
     "no_factor_wind": 5,
     "pref_wind": 15,
     "assumed_wind_dir": 270,
