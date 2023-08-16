@@ -2,7 +2,7 @@ use exitfailure::ExitFailure;
 use metar::{Metar, WindDirection};
 use reqwest::Url;
 use serde::{Deserialize, Serialize};
-use std::{fs, collections::HashMap, io::Write, cmp};
+use std::{cmp, collections::HashMap, fs, io::Write};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -29,27 +29,35 @@ struct Airport {
     preferred_dep: Option<Vec<String>>,
     preferred_arr: Option<Vec<String>>,
     selected_dep_rwy: Option<String>,
-    selected_arr_rwy: Option<String>
+    selected_arr_rwy: Option<String>,
 }
 
 impl Runway {
     fn get_wind_dir_difference(&self, wind_dir: u32) -> u32 {
         //self.true_heading.abs_diff(wind_dir)
-        cmp::min(360 - self.true_heading.abs_diff(wind_dir), self.true_heading.abs_diff(wind_dir))
+        cmp::min(
+            360 - self.true_heading.abs_diff(wind_dir),
+            self.true_heading.abs_diff(wind_dir),
+        )
     }
 }
 
 impl Airport {
-    fn get_runway_heading(&self, id:String) -> Result<&Runway, String> {
+    fn get_runway_heading(&self, id: String) -> Result<&Runway, String> {
         for runway in &self.runways {
             if runway.id == id {
-                return Ok(runway)
+                return Ok(runway);
             }
         }
         Err("No runway found".to_string())
     }
 
-    async fn select_rwy(&self, calm_wind:Option<u32>, pref_wind:Option<u32>, assumed_dir:Option<u32>) -> Result<(String, String), ExitFailure> {
+    async fn select_rwy(
+        &self,
+        calm_wind: Option<u32>,
+        pref_wind: Option<u32>,
+        assumed_dir: Option<u32>,
+    ) -> Result<(String, String), ExitFailure> {
         let icao: String;
         let calm_wind = calm_wind.unwrap_or(5);
         let pref_calm_wind = pref_wind.unwrap_or(15);
@@ -91,7 +99,7 @@ impl Airport {
             min_wind = pref_calm_wind;
         }
         if speed < min_wind {
-            direction = 270; // For winds below 3 knots use preferred runway
+            direction = assumed_dir; // For winds below 3 knots use preferred runway
         }
         let dep = self.select_dep_rwy(direction).unwrap();
         let arr = self.select_arr_rwy(direction).unwrap();
@@ -119,18 +127,25 @@ impl Airport {
         Ok(dep)
     }
 
-    fn select_preferred_rwy(&self, direction: u32, runway_list:&Vec<String>) -> Result<String, ExitFailure>
-    {
+    fn select_preferred_rwy(
+        &self,
+        direction: u32,
+        runway_list: &Vec<String>,
+    ) -> Result<String, ExitFailure> {
         for rwy in runway_list.iter() {
             let rw = self.get_runway_heading(rwy.to_owned()).unwrap();
             if rw.get_wind_dir_difference(direction) < 90 {
-                return Ok(rw.id.clone())
+                return Ok(rw.id.clone());
             }
         }
         panic!("No runway selected");
     }
 
-    fn select_any_rwy(&self, direction: u32, runway_list:&Vec<Runway>) -> Result<String, ExitFailure> {
+    fn select_any_rwy(
+        &self,
+        direction: u32,
+        runway_list: &Vec<Runway>,
+    ) -> Result<String, ExitFailure> {
         let mut selected: Option<String> = None;
         let mut diff: u32 = 180;
         for rwy in runway_list.iter() {
@@ -141,10 +156,8 @@ impl Airport {
             }
         }
         match selected {
-            Some(r) => {
-                Ok(r)
-            },
-            None => panic!("Could not select runway")
+            Some(r) => Ok(r),
+            None => panic!("Could not select runway"),
         }
     }
 }
@@ -156,21 +169,26 @@ fn read_config(file: &str) -> Config {
 }
 
 fn write_runway_file(file: String, dep: HashMap<String, String>, arr: HashMap<String, String>) {
-    let mut f = match fs::OpenOptions::new().write(true).truncate(true).create(true).open(file) {
+    let mut f = match fs::OpenOptions::new()
+        .write(true)
+        .truncate(true)
+        .create(true)
+        .open(file)
+    {
         Ok(it) => it,
         Err(err) => panic!("Couldn't open the file! {}", err),
     };
     for (icao, rwy) in dep {
-        let line = format!("ACTIVE_RUNWAY:{}:{}:1\n",icao,rwy);
+        let line = format!("ACTIVE_RUNWAY:{}:{}:1\n", icao, rwy);
         match f.write_all(line.as_bytes()) {
-            Ok(_) => {},
+            Ok(_) => {}
             Err(err) => panic!("Couldn't write departures to the file! {}", err),
         }
     }
     for (icao, rwy) in arr {
-        let line = format!("ACTIVE_RUNWAY:{}:{}:0\n",icao,rwy);
+        let line = format!("ACTIVE_RUNWAY:{}:{}:0\n", icao, rwy);
         match f.write_all(line.as_bytes()) {
-            Ok(_) => {},
+            Ok(_) => {}
             Err(err) => panic!("Couldn't write arrivals to the file! {}", err),
         }
     }
@@ -188,7 +206,9 @@ async fn main() -> Result<(), ExitFailure> {
     println!("Processing data: ");
     for airport in cfg.airports.iter() {
         print!("{} ", airport.icao);
-        let (d,a) = airport.select_rwy(cfg.no_factor_wind, cfg.pref_wind, cfg.assumed_dir).await?;
+        let (d, a) = airport
+            .select_rwy(cfg.no_factor_wind, cfg.pref_wind, cfg.assumed_dir)
+            .await?;
         dep_rwys.insert(airport.icao.clone(), d);
         arr_rwys.insert(airport.icao.clone(), a);
     }
