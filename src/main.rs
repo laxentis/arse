@@ -30,6 +30,7 @@ struct Airport {
     preferred_arr: Option<Vec<String>>,
     selected_dep_rwy: Option<String>,
     selected_arr_rwy: Option<String>,
+    no_factor_wind: Option<u32>,
 }
 
 impl Runway {
@@ -54,12 +55,18 @@ impl Airport {
 
     async fn select_rwy(
         &self,
-        calm_wind: Option<u32>,
+        calm_wind_prop: Option<u32>,
         pref_wind: Option<u32>,
         assumed_dir: Option<u32>,
     ) -> Result<(String, String), ExitFailure> {
         let icao: String;
-        let calm_wind = calm_wind.unwrap_or(5);
+        let calm_wind: u32;
+        if self.no_factor_wind.is_some()
+        {
+            calm_wind = self.no_factor_wind.unwrap();
+        } else {
+            calm_wind = calm_wind_prop.unwrap_or(5);
+        }
         let pref_calm_wind = pref_wind.unwrap_or(15);
         let assumed_dir = assumed_dir.unwrap_or(270);
         match &self.use_metar_from {
