@@ -13,7 +13,21 @@ a `use_metar_from` station use the same report.
 
 Run the original command-line application with `cargo run`. To use the GPUI
 desktop interface, run `cargo run --features gui --bin arse-gui`. Both read
-`arse.json` from the current working directory. In the GUI, click **Select and
+`arse.json` from the current working directory by default. Pass an optional
+configuration path after `--` to use a different file, for example:
+
+```powershell
+cargo run -- "C:\EuroScope\config\arse.json"
+cargo run --features gui --bin arse-gui -- ".\config\arse.json"
+```
+
+When running the executable directly, omit Cargo's `--` separator. Both the
+configuration path and the `rwy_file` path can be absolute or relative to the
+process's current working directory. In JSON, escape Windows backslashes (for
+example `"C:\\EuroScope\\sector.rwy"`), or use forward slashes
+(`"C:/EuroScope/sector.rwy"`). Quote paths containing spaces on the command line.
+
+In the GUI, click **Select and
 write runways** to fetch METARs, select runways, and overwrite the configured
 `.rwy` file. Results or errors are shown in the window.
 
@@ -21,7 +35,7 @@ The GUI builds GPUI and its platform dependencies; on Linux these include the
 development libraries required by GPUI's X11/Wayland backends.
 
 ## Configuration
-The configuration file is located in `arse.json`. Edit it to your needs.
+The default configuration file is `arse.json`. Edit it to your needs.
 
 ### Config preamble
 `rwy_file` must point to the location of the `.rwy` file (corresponding to your sector file).

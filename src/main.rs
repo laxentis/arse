@@ -14,7 +14,11 @@ async fn main() -> Result<(), ExitFailure> {
     println!("Automatic Runway Setting for Euroscope");
     println!("Version {}", VERSION);
     print!("Reading config: ");
-    let cfg = Config::read("arse.json");
+    let config_path = config::config_path_from_args(std::env::args_os().skip(1))
+        .map_err(|err| std::io::Error::new(std::io::ErrorKind::InvalidInput, err))?;
+    let cfg = Config::try_read(&config_path).map_err(|err| {
+        std::io::Error::other(format!("Could not read {}: {err}", config_path.display()))
+    })?;
     println!("OK");
     let mut departure_runways = HashMap::new();
     let mut arrival_runways = HashMap::new();

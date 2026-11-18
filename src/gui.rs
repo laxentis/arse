@@ -4,8 +4,12 @@ mod runway_file;
 mod weather;
 
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 
-use gpui::{div, prelude::*, px, rgb, size, App, Application, Bounds, Context, TitlebarOptions, Window, WindowBounds, WindowOptions, SharedString};
+use gpui::{
+    div, prelude::*, px, rgb, size, App, Application, Bounds, Context, SharedString,
+    TitlebarOptions, Window, WindowBounds, WindowOptions,
+};
 
 struct ResultRow {
     icao: String,
@@ -18,9 +22,9 @@ struct RunResult {
     rows: Vec<ResultRow>,
 }
 
-fn run_selection() -> Result<RunResult, String> {
-    let cfg = config::Config::try_read("arse.json")
-        .map_err(|err| format!("Could not read arse.json: {err}"))?;
+fn run_selection(config_path: &Path) -> Result<RunResult, String> {
+    let cfg = config::Config::try_read(config_path)
+        .map_err(|err| format!("Could not read {}: {err}", config_path.display()))?;
     let runtime = tokio::runtime::Runtime::new().map_err(|err| err.to_string())?;
     let mut departures = HashMap::new();
     let mut arrivals = HashMap::new();
@@ -55,6 +59,7 @@ fn run_selection() -> Result<RunResult, String> {
 }
 
 struct RunwayApp {
+    config_path: PathBuf,
     running: bool,
     status: String,
     rows: Vec<ResultRow>,
@@ -70,7 +75,10 @@ impl RunwayApp {
         self.rows.clear();
         cx.notify();
 
-        let task = cx.background_executor().spawn(async { run_selection() });
+        let config_path = self.config_path.clone();
+        let task = cx
+            .background_executor()
+            .spawn(async move { run_selection(&config_path) });
         cx.spawn(async move |this, cx| {
             let result = task.await;
             this.update(cx, |this, cx| {
@@ -116,11 +124,10 @@ impl Render for RunwayApp {
             .bg(rgb(0x101827))
             .text_color(rgb(0xe5edf8))
             .child(div().text_2xl().child("Automatic Runway Setting"))
-            .child(
-                div().text_sm().text_color(rgb(0x9eafc5)).child(
-                    "Run before loading the sector file in EuroScope. Configuration: arse.json",
-                ),
-            )
+            .child(div().text_sm().text_color(rgb(0x9eafc5)).child(format!(
+                "Run before loading the sector file in EuroScope. Configuration: {}",
+                self.config_path.display()
+            )))
             .child(
                 div()
                     .id("run")
@@ -161,7 +168,14 @@ impl Render for RunwayApp {
 }
 
 fn main() {
-    Application::new().run(|cx: &mut App| {
+    let config_path = match config::config_path_from_args(std::env::args_os().skip(1)) {
+        Ok(path) => path,
+        Err(err) => {
+            eprintln!("{err}");
+            return;
+        }
+    };
+    Application::new().run(move |cx: &mut App| {
         cx.on_window_closed(|cx| {
             if cx.windows().is_empty() {
                 cx.quit();
@@ -172,7 +186,7 @@ fn main() {
         cx.open_window(
             WindowOptions {
                 window_bounds: Some(WindowBounds::Windowed(bounds)),
-                titlebar: Some(TitlebarOptions{
+                titlebar: Some(TitlebarOptions {
                     title: Some(SharedString::from("ARSE")),
                     traffic_light_position: None,
                     appears_transparent: false,
@@ -181,6 +195,7 @@ fn main() {
             },
             |_, cx| {
                 cx.new(|_| RunwayApp {
+                    config_path,
                     running: false,
                     status: "Ready. Select runways to update the configured .rwy file.".into(),
                     rows: Vec::new(),
