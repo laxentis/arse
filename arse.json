@@ -1,5 +1,5 @@
 {
-    "rwy_file": "./EPWW-Sector_20220130145559-220101-0002.rwy",
+    "rwy_file": "../EPWW-Sector_20261112163331-261101-0002.rwy",
     "no_factor_wind": 5,
     "pref_wind": 15,
     "assumed_wind_dir": 270,
@@ -8,14 +8,14 @@
             "icao": "EDDB",
             "runways": [
                 {
-                    "id": "07L",
+                    "id": "06L",
                     "true_heading": 70,
-                    "linked_designators": ["07R"]
+                    "linked_designators": ["06R"]
                 },
                 {
-                    "id": "25L",
+                    "id": "24L",
                     "true_heading": 250,
-                    "linked_designators": ["25R"]
+                    "linked_designators": ["24R"]
                 }
             ]
         },
@@ -24,11 +24,11 @@
             "use_metar_from": "EPWA",
             "runways": [
                 {
-                    "id": "10",
+                    "id": "10R",
                     "true_heading": 103
                 },
                 {
-                    "id": "28",
+                    "id": "28L",
                     "true_heading": 283
                 }
             ]
@@ -51,11 +51,11 @@
             "use_metar_from": "EPLB",
             "runways": [
                 {
-                    "id": "12",
+                    "id": "11",
                     "true_heading": 121
                 },
                 {
-                    "id": "30",
+                    "id": "29",
                     "true_heading": 301
                 }
             ]
