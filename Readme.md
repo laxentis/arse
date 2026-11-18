@@ -4,7 +4,21 @@ Did you ever forget to preset runways in use for an airport and be surprised by 
 
 This tool checks VATSIM METARs and preselects the runways for you.
 
+METARs for all configured airports are fetched in one request. Airports sharing
+a `use_metar_from` station use the same report.
+
 **Caution**: The tool has to be launched **before** loading the sector file in EuroScope.
+
+## Running
+
+Run the original command-line application with `cargo run`. To use the GPUI
+desktop interface, run `cargo run --features gui --bin arse-gui`. Both read
+`arse.json` from the current working directory. In the GUI, click **Select and
+write runways** to fetch METARs, select runways, and overwrite the configured
+`.rwy` file. Results or errors are shown in the window.
+
+The GUI builds GPUI and its platform dependencies; on Linux these include the
+development libraries required by GPUI's X11/Wayland backends.
 
 ## Configuration
 The configuration file is located in `arse.json`. Edit it to your needs.
@@ -31,3 +45,15 @@ The following optional properties can be set:
 A `runway` consists of following properties:
 * `id` - a string identifying a runway, must be the same as the runway ID in sector file (e.g. `"07L"`)
 * `true_heading` - true heading of the runway, used to calculate wind angular difference
+* `linked_designators` (optional) - a list of additional runway IDs to activate
+  whenever this runway is selected. The links apply separately to departures and
+  arrivals, are one-way and are not followed recursively. Linked IDs need not
+  appear in `runways`, but must match designators in the sector file.
+
+For example, to activate parallel runway 36L whenever 36R is selected:
+
+```json
+{"id": "36R", "true_heading": 353, "linked_designators": ["36L"]}
+```
+
+To activate 36R when 36L is selected, add a corresponding link to 36L.

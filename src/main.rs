@@ -1,6 +1,7 @@
 mod airport;
 mod config;
 mod runway_file;
+mod weather;
 
 use config::Config;
 use exitfailure::ExitFailure;
@@ -18,11 +19,15 @@ async fn main() -> Result<(), ExitFailure> {
     let mut departure_runways = HashMap::new();
     let mut arrival_runways = HashMap::new();
     println!("Processing data: ");
+    let reports = weather::fetch(&cfg.airports).await?;
     for airport in cfg.airports.iter() {
         print!("{} ", airport.icao);
-        let (d, a) = airport
-            .select_rwy(cfg.no_factor_wind, cfg.pref_wind, cfg.assumed_dir)
-            .await?;
+        let (d, a) = airport.select_rwy(
+            weather::report(&reports, airport),
+            cfg.no_factor_wind,
+            cfg.pref_wind,
+            cfg.assumed_dir,
+        )?;
         departure_runways.insert(airport.icao.clone(), d);
         arrival_runways.insert(airport.icao.clone(), a);
     }

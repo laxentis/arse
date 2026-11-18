@@ -1,6 +1,5 @@
 use exitfailure::ExitFailure;
-use metar::{Metar, WindDirection};
-use reqwest::Url;
+use metar::{Data, Metar, WindDirection};
 use serde::{Deserialize, Serialize};
 use std::cmp;
 
@@ -8,6 +7,8 @@ use std::cmp;
 struct Runway {
     id: String,
     true_heading: u32,
+    #[serde(default)]
+    linked_designators: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -33,6 +34,10 @@ impl Runway {
 }
 
 impl Airport {
+    pub fn metar_station(&self) -> &str {
+        self.use_metar_from.as_deref().unwrap_or(&self.icao)
+    }
+
     fn get_runway_heading(&self, id: String) -> Result<&Runway, String> {
         for runway in &self.runways {
             if runway.id == id {
@@ -42,13 +47,13 @@ impl Airport {
         Err("No runway found".to_string())
     }
 
-    pub async fn select_rwy(
+    pub fn select_rwy(
         &self,
+        report: &str,
         calm_wind_prop: Option<u32>,
         pref_wind: Option<u32>,
         assumed_dir: Option<u32>,
-    ) -> Result<(String, String), ExitFailure> {
-        let icao: String;
+    ) -> Result<(Vec<String>, Vec<String>), ExitFailure> {
         let calm_wind: u32;
         if self.no_factor_wind.is_some() {
             calm_wind = self.no_factor_wind.unwrap();
@@ -57,16 +62,24 @@ impl Airport {
         }
         let pref_calm_wind = pref_wind.unwrap_or(15);
         let assumed_dir = assumed_dir.unwrap_or(270);
-        match &self.use_metar_from {
-            Some(s) => icao = s.to_string(),
-            None => icao = self.icao.clone(),
-        }
-        let url = format!("https://metar.vatsim.net/metar.php?id={}", icao);
-        let url = Url::parse(&*url)?;
-        let res = reqwest::get(url).await?.text().await?;
-        let metar = Metar::parse(res)?;
+        let metar = Metar::parse(report).map_err(|err| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!("Invalid METAR for {}: {err}", self.metar_station()),
+            )
+        })?;
         let mut direction: u32;
-        match metar.wind.dir.unwrap() {
+        let wind_dir = match &metar.wind.dir {
+            Data::Known(dir) => dir,
+            Data::Unknown => {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    "METAR has no wind direction",
+                )
+                .into())
+            }
+        };
+        match wind_dir {
             WindDirection::Heading(dir) => {
                 direction = *dir;
             }
@@ -78,7 +91,17 @@ impl Airport {
             }
         }
         let speed: u32;
-        match metar.wind.speed.unwrap() {
+        let wind_speed = match &metar.wind.speed {
+            Data::Known(speed) => speed,
+            Data::Unknown => {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    "METAR has no wind speed",
+                )
+                .into())
+            }
+        };
+        match wind_speed {
             metar::WindSpeed::Calm => {
                 speed = 0;
             }
@@ -98,8 +121,22 @@ impl Airport {
         }
         let dep = self.select_dep_rwy(direction)?;
         let arr = self.select_arr_rwy(direction)?;
-        println!("DEP: {:<3} ARR: {:<3}", dep, arr);
+        let dep = self.with_linked_designators(&dep);
+        let arr = self.with_linked_designators(&arr);
+        println!("DEP: {} ARR: {}", dep.join(", "), arr.join(", "));
         Ok((dep, arr))
+    }
+
+    fn with_linked_designators(&self, selected: &str) -> Vec<String> {
+        let mut result = vec![selected.to_owned()];
+        if let Some(runway) = self.runways.iter().find(|runway| runway.id == selected) {
+            for designator in &runway.linked_designators {
+                if !result.contains(designator) {
+                    result.push(designator.clone());
+                }
+            }
+        }
+        result
     }
 
     fn select_dep_rwy(&self, wind_dir: u32) -> Result<String, ExitFailure> {
@@ -128,12 +165,18 @@ impl Airport {
         runway_list: &Vec<String>,
     ) -> Result<String, ExitFailure> {
         for rwy in runway_list.iter() {
-            let rw = self.get_runway_heading(rwy.to_owned()).unwrap();
+            let rw = self
+                .get_runway_heading(rwy.to_owned())
+                .map_err(|message| std::io::Error::new(std::io::ErrorKind::InvalidData, message))?;
             if rw.get_wind_dir_difference(direction) < 90 {
                 return Ok(rw.id.clone());
             }
         }
-        panic!("No runway selected");
+        Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "No preferred runway selected",
+        )
+        .into())
     }
 
     fn select_any_rwy(
@@ -152,7 +195,67 @@ impl Airport {
         }
         match selected {
             Some(r) => Ok(r),
-            None => panic!("Could not select runway"),
+            None => Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "Could not select runway",
+            )
+            .into()),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn airport(json: &str) -> Airport {
+        serde_json::from_str(json).unwrap()
+    }
+
+    const REPORT: &str = "ZZZZ 010000Z 35020KT CAVOK 10/05 Q1013";
+
+    #[test]
+    fn linked_designators_follow_independent_departure_and_arrival_selections() {
+        let airport = airport(
+            r#"{
+                "icao": "ZZZZ",
+                "runways": [
+                    {"id":"36R","true_heading":353,"linked_designators":["36L","36R","36L"]},
+                    {"id":"36L","true_heading":353,"linked_designators":["36C"]},
+                    {"id":"18L","true_heading":173}
+                ],
+                "preferred_dep":["36R"],
+                "preferred_arr":["36L"]
+            }"#,
+        );
+        let (dep, arr) = airport.select_rwy(REPORT, None, None, None).unwrap();
+        assert_eq!(dep, ["36R", "36L"]);
+        assert_eq!(arr, ["36L", "36C"]);
+    }
+
+    #[test]
+    fn missing_links_preserve_single_runway_selection() {
+        let airport = airport(
+            r#"{"icao":"ZZZZ","runways":[
+                {"id":"36R","true_heading":353},
+                {"id":"18L","true_heading":173}
+            ]}"#,
+        );
+        let (dep, arr) = airport.select_rwy(REPORT, None, None, None).unwrap();
+        assert_eq!(dep, ["36R"]);
+        assert_eq!(arr, ["36R"]);
+    }
+
+    #[test]
+    fn links_are_not_reciprocal_or_recursive() {
+        let airport = airport(
+            r#"{"icao":"ZZZZ","runways":[
+                {"id":"36R","true_heading":353,"linked_designators":["36L"]},
+                {"id":"36L","true_heading":353,"linked_designators":["36C"]},
+                {"id":"36C","true_heading":353}
+            ]}"#,
+        );
+        assert_eq!(airport.with_linked_designators("36R"), ["36R", "36L"]);
+        assert_eq!(airport.with_linked_designators("36C"), ["36C"]);
     }
 }

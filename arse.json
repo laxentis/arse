@@ -9,11 +9,13 @@
             "runways": [
                 {
                     "id": "07L",
-                    "true_heading": 70
+                    "true_heading": 70,
+                    "linked_designators": ["07R"]
                 },
                 {
                     "id": "25L",
-                    "true_heading": 250
+                    "true_heading": 250,
+                    "linked_designators": ["25R"]
                 }
             ]
         },
