@@ -3,6 +3,8 @@ use metar::{Data, Metar, WindDirection};
 use serde::{Deserialize, Serialize};
 use std::cmp;
 
+use crate::logging;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Runway {
     id: String,
@@ -102,7 +104,7 @@ impl Airport {
             metar::WindSpeed::MetresPerSecond(s) => speed = *s * 2,
             metar::WindSpeed::KilometresPerHour(s) => speed = *s / 2,
         }
-        print!("WIND: {:0>3} {:0>2}kt ", direction, speed);
+        logging::trace(format!("WIND: {:0>3} {:0>2}kt", direction, speed));
         let ignore_wind_direction = speed < calm_wind;
         let arr = self.select_arr_rwy(direction, ignore_wind_direction)?;
         let blocked_for_departure = self
@@ -112,7 +114,7 @@ impl Airport {
         let dep = self.select_dep_rwy(direction, ignore_wind_direction, blocked_for_departure)?;
         let dep = self.with_linked_designators(&dep);
         let arr = self.with_linked_designators(&arr);
-        println!("DEP: {} ARR: {}", dep.join(", "), arr.join(", "));
+        logging::trace(format!("DEP: {} ARR: {}", dep.join(", "), arr.join(", ")));
         Ok((dep, arr))
     }
 

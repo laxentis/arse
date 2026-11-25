@@ -1,5 +1,6 @@
 mod airport;
 mod config;
+mod logging;
 mod runway_file;
 mod updater;
 mod weather;
@@ -24,6 +25,7 @@ struct RunResult {
 }
 
 fn run_selection(config_path: &Path) -> Result<RunResult, String> {
+    logging::info("Running");
     let cfg = config::Config::try_read(config_path)
         .map_err(|err| format!("Could not read {}: {err}", config_path.display()))?;
     let runtime = tokio::runtime::Runtime::new().map_err(|err| err.to_string())?;
@@ -35,6 +37,7 @@ fn run_selection(config_path: &Path) -> Result<RunResult, String> {
         .map_err(|err| err.to_string())?;
 
     for airport in &cfg.airports {
+        logging::trace(format!("Selecting runways for {}", airport.icao));
         let (departure, arrival) = airport
             .select_rwy(
                 weather::report(&reports, airport),
@@ -89,7 +92,10 @@ impl RunwayApp {
                         this.status = format!("Runway file written: {}", result.path);
                         this.rows = result.rows;
                     }
-                    Err(error) => this.status = error,
+                    Err(error) => {
+                        logging::error(&error);
+                        this.status = error;
+                    }
                 }
                 cx.notify();
             })
@@ -169,10 +175,13 @@ impl Render for RunwayApp {
 }
 
 fn main() {
+    if let Err(err) = logging::init_gui() {
+        eprintln!("Could not initialize logging: {err}");
+    }
     let args = match config::parse_args(std::env::args_os().skip(1)) {
         Ok(args) => args,
         Err(err) => {
-            eprintln!("{err}");
+            logging::error(err);
             return;
         }
     };
@@ -180,12 +189,12 @@ fn main() {
     let runtime = match tokio::runtime::Runtime::new() {
         Ok(runtime) => runtime,
         Err(err) => {
-            eprintln!("Could not initialize updater: {err}");
+            logging::error(format!("Could not initialize updater: {err}"));
             return;
         }
     };
     if let Err(err) = runtime.block_on(updater::update_if_requested(args.update, &config_path)) {
-        eprintln!("Could not update configuration: {err}");
+        logging::error(format!("Could not update configuration: {err}"));
         return;
     }
     Application::new().run(move |cx: &mut App| {

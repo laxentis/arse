@@ -44,6 +44,13 @@ selected configuration file (`arse.json` by default).
 The GUI builds GPUI and its platform dependencies; on Linux these include the
 development libraries required by GPUI's X11/Wayland backends.
 
+### Logging
+The command-line application writes detailed trace logs to stdout. The GUI
+writes logs to `arse.log` in the current working directory and, by default,
+records only warnings and errors. Set `ARSE_LOG_FILE` to change the log path or
+`ARSE_LOG_LEVEL` to `trace`, `info`, `warn`, or `error` to change the GUI log
+level.
+
 ## Configuration
 The default configuration file is `arse.json`. Edit it to your needs.
 
