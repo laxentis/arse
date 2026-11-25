@@ -6,15 +6,34 @@ use std::path::{Path, PathBuf};
 pub fn config_path_from_args(
     args: impl IntoIterator<Item = std::ffi::OsString>,
 ) -> Result<PathBuf, &'static str> {
-    let mut args = args.into_iter();
-    let path = args
-        .next()
-        .map(PathBuf::from)
-        .unwrap_or_else(|| "arse.json".into());
-    if args.next().is_some() {
-        return Err("Expected at most one argument: the path to the configuration file");
+    Ok(parse_args(args)?.config_path)
+}
+
+pub struct Args {
+    pub config_path: PathBuf,
+    pub update: bool,
+}
+
+pub fn parse_args(
+    args: impl IntoIterator<Item = std::ffi::OsString>,
+) -> Result<Args, &'static str> {
+    let mut config_path = None;
+    let mut update = false;
+
+    for arg in args {
+        if arg == "--update" {
+            update = true;
+        } else if config_path.is_none() {
+            config_path = Some(PathBuf::from(arg));
+        } else {
+            return Err("Expected at most one argument: the path to the configuration file");
+        }
     }
-    Ok(path)
+
+    Ok(Args {
+        config_path: config_path.unwrap_or_else(|| "arse.json".into()),
+        update,
+    })
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -53,6 +72,17 @@ mod tests {
             PathBuf::from(r"config\my file.json")
         );
         assert!(config_path_from_args([OsString::from("a"), OsString::from("b")]).is_err());
+    }
+
+    #[test]
+    fn accepts_update_flag_with_or_without_config_path() {
+        let args = parse_args([OsString::from("--update")]).unwrap();
+        assert!(args.update);
+        assert_eq!(args.config_path, PathBuf::from("arse.json"));
+
+        let args = parse_args([OsString::from("custom.json"), OsString::from("--update")]).unwrap();
+        assert!(args.update);
+        assert_eq!(args.config_path, PathBuf::from("custom.json"));
     }
 
     #[test]

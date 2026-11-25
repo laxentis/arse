@@ -19,6 +19,8 @@ configuration path after `--` to use a different file, for example:
 ```powershell
 cargo run -- "C:\EuroScope\config\arse.json"
 cargo run --features gui --bin arse-gui -- ".\config\arse.json"
+cargo run -- --update
+cargo run --features gui --bin arse-gui -- --update
 ```
 
 When running the executable directly, omit Cargo's `--` separator. Both the
@@ -31,11 +33,33 @@ In the GUI, click **Select and
 write runways** to fetch METARs, select runways, and overwrite the configured
 `.rwy` file. Results or errors are shown in the window.
 
+Before reading the configuration, the program checks for `updater.json` in the
+current working directory. If it is not present, no update is performed. When
+it is present and `auto_update_on_launch` is `true`, the configuration is
+downloaded from `url` every time the program starts. When
+`auto_update_on_launch` is `false`, the update is performed only when the
+program is launched with `--update`. The downloaded configuration replaces the
+selected configuration file (`arse.json` by default).
+
 The GUI builds GPUI and its platform dependencies; on Linux these include the
 development libraries required by GPUI's X11/Wayland backends.
 
 ## Configuration
 The default configuration file is `arse.json`. Edit it to your needs.
+
+### Updater configuration
+The optional `updater.json` file controls configuration updates. For example:
+
+```json
+{
+  "url": "https://example.com/arse.json",
+  "auto_update_on_launch": true
+}
+```
+
+`url` is the address of the remote configuration file, and
+`auto_update_on_launch` controls whether it is downloaded automatically at
+startup. Set it to `false` to require the `--update` command-line flag.
 
 ### Config preamble
 `rwy_file` must point to the location of the `.rwy` file (corresponding to your sector file).

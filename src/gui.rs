@@ -1,6 +1,7 @@
 mod airport;
 mod config;
 mod runway_file;
+mod updater;
 mod weather;
 
 use std::collections::HashMap;
@@ -168,13 +169,25 @@ impl Render for RunwayApp {
 }
 
 fn main() {
-    let config_path = match config::config_path_from_args(std::env::args_os().skip(1)) {
-        Ok(path) => path,
+    let args = match config::parse_args(std::env::args_os().skip(1)) {
+        Ok(args) => args,
         Err(err) => {
             eprintln!("{err}");
             return;
         }
     };
+    let config_path = args.config_path;
+    let runtime = match tokio::runtime::Runtime::new() {
+        Ok(runtime) => runtime,
+        Err(err) => {
+            eprintln!("Could not initialize updater: {err}");
+            return;
+        }
+    };
+    if let Err(err) = runtime.block_on(updater::update_if_requested(args.update, &config_path)) {
+        eprintln!("Could not update configuration: {err}");
+        return;
+    }
     Application::new().run(move |cx: &mut App| {
         cx.on_window_closed(|cx| {
             if cx.windows().is_empty() {

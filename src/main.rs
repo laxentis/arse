@@ -1,6 +1,7 @@
 mod airport;
 mod config;
 mod runway_file;
+mod updater;
 mod weather;
 
 use config::Config;
@@ -13,9 +14,16 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 async fn main() -> Result<(), ExitFailure> {
     println!("Automatic Runway Setting for Euroscope");
     println!("Version {}", VERSION);
-    print!("Reading config: ");
-    let config_path = config::config_path_from_args(std::env::args_os().skip(1))
+    let args = config::parse_args(std::env::args_os().skip(1))
         .map_err(|err| std::io::Error::new(std::io::ErrorKind::InvalidInput, err))?;
+    if updater::update_if_requested(args.update, &args.config_path)
+        .await
+        .map_err(|err| std::io::Error::other(format!("Could not update configuration: {err}")))?
+    {
+        println!("Configuration updated");
+    }
+    print!("Reading config: ");
+    let config_path = args.config_path;
     let cfg = Config::try_read(&config_path).map_err(|err| {
         std::io::Error::other(format!("Could not read {}: {err}", config_path.display()))
     })?;
