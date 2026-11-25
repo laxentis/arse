@@ -10,12 +10,14 @@
                 {
                     "id": "06L",
                     "true_heading": 70,
-                    "linked_designators": ["06R"]
+                    "linked_designators": ["06R"],
+                    "blocks": ["24L"]
                 },
                 {
                     "id": "24L",
                     "true_heading": 250,
-                    "linked_designators": ["24R"]
+                    "linked_designators": ["24R"],
+                    "blocks": ["06L"]
                 }
             ]
         },

@@ -87,11 +87,14 @@ A `runway` consists of following properties:
   whenever this runway is selected. The links apply separately to departures and
   arrivals, are one-way and are not followed recursively. Linked IDs need not
   appear in `runways`, but must match designators in the sector file.
+* `blocks` (optional) - a list of runway IDs that cannot be selected for the
+  subsequent runway assignment when this runway is selected. This is useful for
+  preventing conflicting arrival and departure runway combinations.
 
 For example, to activate parallel runway 36L whenever 36R is selected:
 
 ```json
-{"id": "36R", "true_heading": 353, "linked_designators": ["36L"]}
+{"id": "36R", "true_heading": 353, "linked_designators": ["36L"], "blocks": ["18L"]}
 ```
 
 To activate 36R when 36L is selected, add a corresponding link to 36L.

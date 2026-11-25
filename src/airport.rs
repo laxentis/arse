@@ -9,6 +9,8 @@ struct Runway {
     true_heading: u32,
     #[serde(default)]
     linked_designators: Vec<String>,
+    #[serde(default)]
+    blocks: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -38,7 +40,7 @@ impl Airport {
         self.use_metar_from.as_deref().unwrap_or(&self.icao)
     }
 
-    fn get_runway_heading(&self, id: String) -> Result<&Runway, String> {
+    fn get_runway_heading(&self, id: &str) -> Result<&Runway, String> {
         for runway in &self.runways {
             if runway.id == id {
                 return Ok(runway);
@@ -51,7 +53,7 @@ impl Airport {
         &self,
         report: &str,
         calm_wind_prop: Option<u32>,
-        pref_wind: Option<u32>,
+        _pref_wind: Option<u32>,
         assumed_dir: Option<u32>,
     ) -> Result<(Vec<String>, Vec<String>), ExitFailure> {
         let calm_wind: u32;
@@ -60,7 +62,6 @@ impl Airport {
         } else {
             calm_wind = calm_wind_prop.unwrap_or(5);
         }
-        let pref_calm_wind = pref_wind.unwrap_or(15);
         let assumed_dir = assumed_dir.unwrap_or(270);
         let metar = Metar::parse(report).map_err(|err| {
             std::io::Error::new(
@@ -68,7 +69,6 @@ impl Airport {
                 format!("Invalid METAR for {}: {err}", self.metar_station()),
             )
         })?;
-        let mut direction: u32;
         let wind_dir = match &metar.wind.dir {
             Data::Known(dir) => dir,
             Data::Unknown => {
@@ -79,17 +79,10 @@ impl Airport {
                 .into())
             }
         };
-        match wind_dir {
-            WindDirection::Heading(dir) => {
-                direction = *dir;
-            }
-            WindDirection::Variable => {
-                direction = assumed_dir;
-            }
-            WindDirection::Above => {
-                direction = assumed_dir;
-            }
-        }
+        let direction = match wind_dir {
+            WindDirection::Heading(dir) => *dir,
+            WindDirection::Variable | WindDirection::Above => assumed_dir,
+        };
         let speed: u32;
         let wind_speed = match &metar.wind.speed {
             Data::Known(speed) => speed,
@@ -110,17 +103,13 @@ impl Airport {
             metar::WindSpeed::KilometresPerHour(s) => speed = *s / 2,
         }
         print!("WIND: {:0>3} {:0>2}kt ", direction, speed);
-        let min_wind: u32;
-        if self.preferred_arr.is_none() {
-            min_wind = calm_wind;
-        } else {
-            min_wind = pref_calm_wind;
-        }
-        if speed < min_wind {
-            direction = assumed_dir; // For winds below 3 knots use preferred runway
-        }
-        let dep = self.select_dep_rwy(direction)?;
-        let arr = self.select_arr_rwy(direction)?;
+        let ignore_wind_direction = speed < calm_wind;
+        let arr = self.select_arr_rwy(direction, ignore_wind_direction)?;
+        let blocked_for_departure = self
+            .get_runway_heading(&arr)
+            .map(|runway| runway.blocks.as_slice())
+            .map_err(|message| std::io::Error::new(std::io::ErrorKind::InvalidData, message))?;
+        let dep = self.select_dep_rwy(direction, ignore_wind_direction, blocked_for_departure)?;
         let dep = self.with_linked_designators(&dep);
         let arr = self.with_linked_designators(&arr);
         println!("DEP: {} ARR: {}", dep.join(", "), arr.join(", "));
@@ -139,22 +128,31 @@ impl Airport {
         result
     }
 
-    fn select_dep_rwy(&self, wind_dir: u32) -> Result<String, ExitFailure> {
+    fn select_dep_rwy(
+        &self,
+        wind_dir: u32,
+        ignore_wind_direction: bool,
+        blocked: &[String],
+    ) -> Result<String, ExitFailure> {
         let dep: String;
         if let Some(dep_prefs) = &self.preferred_dep {
-            dep = self.select_preferred_rwy(wind_dir, dep_prefs)?;
+            dep = self.select_preferred_rwy(wind_dir, dep_prefs, ignore_wind_direction, blocked)?;
         } else {
-            dep = self.select_any_rwy(wind_dir, &self.runways)?;
+            dep = self.select_any_rwy(wind_dir, &self.runways, ignore_wind_direction, blocked)?;
         }
         Ok(dep)
     }
 
-    fn select_arr_rwy(&self, wind_dir: u32) -> Result<String, ExitFailure> {
+    fn select_arr_rwy(
+        &self,
+        wind_dir: u32,
+        ignore_wind_direction: bool,
+    ) -> Result<String, ExitFailure> {
         let dep: String;
         if let Some(arr_prefs) = &self.preferred_arr {
-            dep = self.select_preferred_rwy(wind_dir, arr_prefs)?;
+            dep = self.select_preferred_rwy(wind_dir, arr_prefs, ignore_wind_direction, &[])?;
         } else {
-            dep = self.select_any_rwy(wind_dir, &self.runways)?;
+            dep = self.select_any_rwy(wind_dir, &self.runways, ignore_wind_direction, &[])?;
         }
         Ok(dep)
     }
@@ -162,13 +160,18 @@ impl Airport {
     fn select_preferred_rwy(
         &self,
         direction: u32,
-        runway_list: &Vec<String>,
+        runway_list: &[String],
+        ignore_wind_direction: bool,
+        blocked: &[String],
     ) -> Result<String, ExitFailure> {
         for rwy in runway_list.iter() {
             let rw = self
-                .get_runway_heading(rwy.to_owned())
+                .get_runway_heading(rwy)
                 .map_err(|message| std::io::Error::new(std::io::ErrorKind::InvalidData, message))?;
-            if rw.get_wind_dir_difference(direction) < 90 {
+            if blocked.iter().any(|blocked_id| blocked_id == &rw.id) {
+                continue;
+            }
+            if ignore_wind_direction || rw.get_wind_dir_difference(direction) < 90 {
                 return Ok(rw.id.clone());
             }
         }
@@ -182,11 +185,19 @@ impl Airport {
     fn select_any_rwy(
         &self,
         direction: u32,
-        runway_list: &Vec<Runway>,
+        runway_list: &[Runway],
+        ignore_wind_direction: bool,
+        blocked: &[String],
     ) -> Result<String, ExitFailure> {
         let mut selected: Option<String> = None;
         let mut diff: u32 = 180;
         for rwy in runway_list.iter() {
+            if blocked.iter().any(|blocked_id| blocked_id == &rwy.id) {
+                continue;
+            }
+            if ignore_wind_direction {
+                return Ok(rwy.id.clone());
+            }
             let nd = rwy.get_wind_dir_difference(direction);
             if nd < diff {
                 diff = nd;
@@ -257,5 +268,47 @@ mod tests {
         );
         assert_eq!(airport.with_linked_designators("36R"), ["36R", "36L"]);
         assert_eq!(airport.with_linked_designators("36C"), ["36C"]);
+    }
+
+    #[test]
+    fn low_wind_uses_preferred_order_without_heading_filter() {
+        let airport = airport(
+            r#"{
+                "icao":"ZZZZ",
+                "no_factor_wind":5,
+                "runways":[
+                    {"id":"18","true_heading":180},
+                    {"id":"36","true_heading":360}
+                ],
+                "preferred_dep":["18","36"],
+                "preferred_arr":["18","36"]
+            }"#,
+        );
+        let (dep, arr) = airport
+            .select_rwy("ZZZZ 010000Z 35004KT CAVOK 10/05 Q1013", None, None, None)
+            .unwrap();
+        assert_eq!(dep, ["18"]);
+        assert_eq!(arr, ["18"]);
+    }
+
+    #[test]
+    fn arrival_blocks_are_removed_from_departure_candidates() {
+        let airport = airport(
+            r#"{
+                "icao":"ZZZZ",
+                "runways":[
+                    {"id":"08","true_heading":80,"blocks":["26"]},
+                    {"id":"26","true_heading":260},
+                    {"id":"10","true_heading":100}
+                ],
+                "preferred_dep":["26","10"],
+                "preferred_arr":["08"]
+            }"#,
+        );
+        let (dep, arr) = airport
+            .select_rwy("ZZZZ 010000Z 09020KT CAVOK 10/05 Q1013", None, None, None)
+            .unwrap();
+        assert_eq!(arr, ["08"]);
+        assert_eq!(dep, ["10"]);
     }
 }
